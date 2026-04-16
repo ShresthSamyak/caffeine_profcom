@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CaffeineMolecule } from "@/components/landing/CaffeineMolecule";
-import { ArrowRight, Coffee, Loader2 } from "lucide-react";
+import { ArrowRight, Coffee, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import Link from "next/link";
 
 interface UserIntakeProps {
   onComplete: (userId: string, name: string) => void;
@@ -18,6 +19,7 @@ export function UserIntake({ onComplete }: UserIntakeProps) {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
 
   const validate = () => {
     const newErrors: { name?: string; email?: string } = {};
@@ -45,6 +47,12 @@ export function UserIntake({ onComplete }: UserIntakeProps) {
 
       const data = await res.json();
 
+      // Already completed — show dedicated screen
+      if (res.status === 409 && data.error === "survey_completed") {
+        setAlreadyCompleted(true);
+        return;
+      }
+
       if (!res.ok) {
         throw new Error(data.error ?? "Something went wrong");
       }
@@ -67,6 +75,66 @@ export function UserIntake({ onComplete }: UserIntakeProps) {
     }
   };
 
+  // ── Already completed screen ─────────────────────────────────────────────
+  if (alreadyCompleted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-cream-50 via-white to-coffee-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-md text-center"
+        >
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-3xl flex items-center justify-center shadow-xl shadow-green-100">
+              <CheckCircle className="w-10 h-10 text-white" />
+            </div>
+          </div>
+
+          <h1 className="text-3xl font-bold text-coffee-950 tracking-tight mb-3">
+            Already completed!
+          </h1>
+          <p className="text-coffee-500 text-sm leading-relaxed mb-2">
+            The email{" "}
+            <span className="font-semibold text-coffee-700">{email}</span> has
+            already been used to submit this survey.
+          </p>
+          <p className="text-coffee-400 text-xs mb-8">
+            Each email address can only participate once to ensure data integrity.
+          </p>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-coffee-100 shadow-xl shadow-coffee-100/50 p-6 space-y-3">
+            <Button variant="primary" size="lg" className="w-full" asChild>
+              <Link href="/dashboard">View Survey Results</Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={() => {
+                setAlreadyCompleted(false);
+                setEmail("");
+                setName("");
+              }}
+            >
+              Try a Different Email
+            </Button>
+          </div>
+
+          <div className="mt-6">
+            <Link
+              href="/"
+              className="text-xs text-coffee-400 hover:text-coffee-600 transition-colors"
+            >
+              ← Back to home
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ── Intake form ──────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-cream-50 via-white to-coffee-50 flex items-center justify-center p-4">
       <motion.div
@@ -110,15 +178,18 @@ export function UserIntake({ onComplete }: UserIntakeProps) {
                 autoComplete="name"
                 autoFocus
               />
-              {errors.name && (
-                <motion.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-xs text-red-500"
-                >
-                  {errors.name}
-                </motion.p>
-              )}
+              <AnimatePresence>
+                {errors.name && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-xs text-red-500"
+                  >
+                    {errors.name}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="space-y-2">
@@ -135,15 +206,18 @@ export function UserIntake({ onComplete }: UserIntakeProps) {
                 className={errors.email ? "border-red-400 focus-visible:ring-red-400" : ""}
                 autoComplete="email"
               />
-              {errors.email && (
-                <motion.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-xs text-red-500"
-                >
-                  {errors.email}
-                </motion.p>
-              )}
+              <AnimatePresence>
+                {errors.email && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-xs text-red-500"
+                  >
+                    {errors.email}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
             <Button
@@ -156,7 +230,7 @@ export function UserIntake({ onComplete }: UserIntakeProps) {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
+                  Checking...
                 </>
               ) : (
                 <>
@@ -170,6 +244,8 @@ export function UserIntake({ onComplete }: UserIntakeProps) {
 
         <p className="text-center text-xs text-coffee-400 mt-6">
           Your information is kept private and used only for this research.
+          <br />
+          One submission per email address.
         </p>
       </motion.div>
     </div>

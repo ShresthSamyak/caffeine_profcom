@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { PieChartCard } from "@/components/dashboard/PieChartCard";
 import { BarChartCard } from "@/components/dashboard/BarChartCard";
 import { SideEffectsChart } from "@/components/dashboard/SideEffectsChart";
+import { ResponsesTable } from "@/components/dashboard/ResponsesTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { DashboardStats } from "@/types";
+import type { ParsedResponse } from "@/lib/parseResponses";
 import {
   Coffee,
   BarChart3,
@@ -18,18 +19,40 @@ import {
   RefreshCw,
   LogOut,
   AlertCircle,
+  Table2,
+  TrendingUp,
+  Percent,
 } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface DashboardData {
+  totalResponses: number;
+  dailyCaffeinePercent: number;
+  sourceData: { name: string; value: number }[];
+  frequencyData: { name: string; responses: number; avgProductivity: number }[];
+  sideEffectsData: { name: string; count: number }[];
+  dependencyData: { name: string; value: number }[];
+  responses: ParsedResponse[];
+  demo?: boolean;
+  empty?: boolean;
+}
+
+// ── Dashboard page ────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const [password, setPassword] = useState("");
   const [authed, setAuthed] = useState(false);
   const [authError, setAuthError] = useState("");
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isDemo, setIsDemo] = useState(false);
+  const [activeTab, setActiveTab] = useState<"analytics" | "responses">(
+    "analytics"
+  );
 
-  const fetchStats = useCallback(async (pwd: string) => {
+  const fetchData = useCallback(async (pwd: string) => {
     setLoading(true);
     try {
       const res = await fetch("/api/dashboard", {
@@ -44,9 +67,8 @@ export default function DashboardPage() {
 
       if (!res.ok) throw new Error("Failed to load data");
 
-      const data = await res.json();
-      setIsDemo(data.demo ?? false);
-      setStats(data);
+      const json: DashboardData = await res.json();
+      setData(json);
       setAuthed(true);
       setAuthError("");
     } catch {
@@ -58,20 +80,31 @@ export default function DashboardPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchStats(password);
-  };
-
-  const handleRefresh = () => {
-    fetchStats(password);
+    fetchData(password);
   };
 
   const handleLogout = () => {
     setAuthed(false);
-    setStats(null);
+    setData(null);
     setPassword("");
   };
 
-  // Login screen
+  // ── Computed stats ──────────────────────────────────────────────────────
+  const avgProductivity =
+    data?.frequencyData && data.frequencyData.length > 0
+      ? (
+          data.frequencyData.reduce(
+            (s, d) => s + d.avgProductivity * d.responses,
+            0
+          ) /
+          Math.max(
+            data.frequencyData.reduce((s, d) => s + d.responses, 0),
+            1
+          )
+        ).toFixed(1)
+      : "—";
+
+  // ── Login screen ──────────────────────────────────────────────────────────
   if (!authed) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-coffee-950 to-coffee-800 flex items-center justify-center p-4">
@@ -87,7 +120,7 @@ export default function DashboardPage() {
                 <BarChart3 className="w-8 h-8 text-coffee-200" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-white">Research Dashboard</h1>
             <p className="text-coffee-300 text-sm mt-1">
               Enter the password to view results
             </p>
@@ -137,11 +170,13 @@ export default function DashboardPage() {
                 {loading ? "Loading..." : "View Results"}
               </Button>
             </form>
-
           </div>
 
           <div className="text-center mt-6">
-            <Link href="/" className="text-coffee-400 text-sm hover:text-coffee-200 transition-colors">
+            <Link
+              href="/"
+              className="text-coffee-400 text-sm hover:text-coffee-200 transition-colors"
+            >
               ← Back to home
             </Link>
           </div>
@@ -150,137 +185,207 @@ export default function DashboardPage() {
     );
   }
 
-  // Dashboard
+  // ── Main dashboard ────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-cream-50 via-white to-coffee-50">
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-coffee-100 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-coffee-500 to-coffee-700 rounded-xl flex items-center justify-center">
+      <div className="bg-white/80 backdrop-blur-md border-b border-coffee-100 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 bg-gradient-to-br from-coffee-500 to-coffee-700 rounded-xl flex items-center justify-center flex-shrink-0">
               <Coffee className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-base font-bold text-coffee-900">
-                Caffeine Survey Dashboard
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-coffee-900 truncate">
+                Caffeine Survey — Research Dashboard
               </h1>
-              {isDemo && (
+              {data?.demo && (
                 <span className="text-xs text-amber-600 font-medium">
-                  Demo data — connect Supabase for live results
+                  Demo data
                 </span>
               )}
             </div>
           </div>
+
+          {/* Tab toggle */}
+          <div className="hidden sm:flex items-center bg-coffee-100/60 rounded-xl p-1 gap-1">
+            {(["analytics", "responses"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 capitalize",
+                  activeTab === tab
+                    ? "bg-white text-coffee-900 shadow-sm"
+                    : "text-coffee-500 hover:text-coffee-700"
+                )}
+              >
+                {tab === "analytics" ? (
+                  <TrendingUp className="w-3.5 h-3.5" />
+                ) : (
+                  <Table2 className="w-3.5 h-3.5" />
+                )}
+                {tab}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRefresh}
+              onClick={() => fetchData(password)}
               disabled={loading}
               className="text-coffee-500"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-coffee-500">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-coffee-500"
+            >
               <LogOut className="w-4 h-4" />
             </Button>
-            <Button variant="primary" size="sm" asChild>
+            <Button variant="primary" size="sm" asChild className="hidden sm:flex">
               <Link href="/survey">Take Survey</Link>
             </Button>
           </div>
         </div>
+
+        {/* Mobile tab bar */}
+        <div className="sm:hidden flex border-t border-coffee-100">
+          {(["analytics", "responses"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold capitalize transition-colors",
+                activeTab === tab
+                  ? "text-coffee-800 border-b-2 border-coffee-700"
+                  : "text-coffee-400"
+              )}
+            >
+              {tab === "analytics" ? (
+                <TrendingUp className="w-3.5 h-3.5" />
+              ) : (
+                <Table2 className="w-3.5 h-3.5" />
+              )}
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatsCard
-            title="Total Responses"
-            value={stats?.totalResponses ?? 0}
-            subtitle="Survey completions"
-            icon={Users}
-            color="from-coffee-500 to-coffee-700"
-            delay={0}
-          />
-          <StatsCard
-            title="Top Source"
-            value={stats?.sourceData?.[0]?.name ?? "—"}
-            subtitle="Most popular caffeine source"
-            icon={Coffee}
-            color="from-amber-400 to-orange-500"
-            delay={0.08}
-          />
-          <StatsCard
-            title="Avg Productivity"
-            value={
-              stats?.frequencyData
-                ? (
-                    stats.frequencyData.reduce(
-                      (s, d) => s + d.avgProductivity * d.responses,
-                      0
-                    ) /
-                    Math.max(
-                      stats.frequencyData.reduce((s, d) => s + d.responses, 0),
-                      1
-                    )
-                  ).toFixed(1)
-                : "—"
-            }
-            subtitle="Average Likert score (1–5)"
-            icon={Zap}
-            color="from-lime-400 to-green-500"
-            delay={0.16}
-          />
-          <StatsCard
-            title="Side Effects"
-            value={stats?.sideEffectsData?.length ?? 0}
-            subtitle="Distinct effects reported"
-            icon={BarChart3}
-            color="from-rose-400 to-pink-500"
-            delay={0.24}
-          />
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        {/* ── Analytics tab ───────────────────────────────────────────── */}
+        <AnimatePresence mode="wait">
+          {activeTab === "analytics" && (
+            <motion.div
+              key="analytics"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-8"
+            >
+              {/* Stats row */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatsCard
+                  title="Total Responses"
+                  value={data?.totalResponses ?? 0}
+                  subtitle="Survey completions"
+                  icon={Users}
+                  color="from-coffee-500 to-coffee-700"
+                  delay={0}
+                />
+                <StatsCard
+                  title="Daily Caffeine Users"
+                  value={`${data?.dailyCaffeinePercent ?? 0}%`}
+                  subtitle="Consume once/day or more"
+                  icon={Percent}
+                  color="from-amber-400 to-orange-500"
+                  delay={0.08}
+                />
+                <StatsCard
+                  title="Avg Productivity"
+                  value={avgProductivity}
+                  subtitle="Likert score out of 5"
+                  icon={Zap}
+                  color="from-lime-400 to-green-500"
+                  delay={0.16}
+                />
+                <StatsCard
+                  title="Top Source"
+                  value={data?.sourceData?.[0]?.name ?? "—"}
+                  subtitle={`${data?.sourceData?.[0]?.value ?? 0} respondents`}
+                  icon={Coffee}
+                  color="from-rose-400 to-pink-500"
+                  delay={0.24}
+                />
+              </div>
 
-        {/* Charts row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {stats?.sourceData && (
-            <PieChartCard
-              title="Caffeine Source Breakdown"
-              subtitle="Primary source chosen by participants"
-              data={stats.sourceData}
-              delay={0.3}
-            />
-          )}
-          {stats?.frequencyData && (
-            <BarChartCard
-              title="Frequency vs Productivity"
-              subtitle="Responses per frequency group vs average productivity score"
-              data={stats.frequencyData}
-              delay={0.38}
-            />
-          )}
-        </div>
+              {/* Charts row 1 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {data?.sourceData && (
+                  <PieChartCard
+                    title="Primary Source of Caffeine"
+                    subtitle="Which caffeine source do participants rely on most?"
+                    data={data.sourceData}
+                    delay={0.3}
+                  />
+                )}
+                {data?.frequencyData && (
+                  <BarChartCard
+                    title="Caffeine Frequency vs Productivity"
+                    subtitle="Average self-reported productivity score per frequency group"
+                    data={data.frequencyData}
+                    delay={0.38}
+                  />
+                )}
+              </div>
 
-        {/* Charts row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {stats?.sideEffectsData && (
-            <SideEffectsChart data={stats.sideEffectsData} delay={0.46} />
+              {/* Charts row 2 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {data?.sideEffectsData && (
+                  <SideEffectsChart
+                    data={data.sideEffectsData}
+                    delay={0.46}
+                  />
+                )}
+                {data?.dependencyData && (
+                  <PieChartCard
+                    title="Perceived Caffeine Dependency"
+                    subtitle="How strongly do participants feel dependent on caffeine?"
+                    data={data.dependencyData}
+                    delay={0.54}
+                  />
+                )}
+              </div>
+            </motion.div>
           )}
-          {stats?.dependencyData && (
-            <PieChartCard
-              title="Perceived Dependency"
-              subtitle="How strongly participants feel dependent on caffeine"
-              data={stats.dependencyData}
-              delay={0.54}
-            />
-          )}
-        </div>
 
-        {isDemo && (
+          {/* ── Responses tab ─────────────────────────────────────────── */}
+          {activeTab === "responses" && (
+            <motion.div
+              key="responses"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+            >
+              <ResponsesTable data={data?.responses ?? []} delay={0.1} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Demo banner */}
+        {data?.demo && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
+            transition={{ delay: 0.65 }}
             className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-start gap-3"
           >
             <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -289,11 +394,34 @@ export default function DashboardPage() {
                 Showing demo data
               </p>
               <p className="text-xs text-amber-600 mt-1">
-                Configure <code className="bg-amber-100 px-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
-                and <code className="bg-amber-100 px-1 rounded">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
-                in your <code className="bg-amber-100 px-1 rounded">.env.local</code> to see real survey data.
+                Run{" "}
+                <code className="bg-amber-100 px-1 rounded">
+                  supabase-schema.sql
+                </code>{" "}
+                in your Supabase SQL Editor to create the tables, then real
+                survey data will appear here automatically.
               </p>
             </div>
+          </motion.div>
+        )}
+
+        {/* Empty state */}
+        {data?.empty && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-coffee-50 border border-coffee-100 rounded-2xl p-8 text-center"
+          >
+            <Coffee className="w-10 h-10 text-coffee-300 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-coffee-700">
+              No responses yet
+            </p>
+            <p className="text-xs text-coffee-400 mt-1 mb-4">
+              Share the survey link to start collecting data.
+            </p>
+            <Button variant="primary" size="sm" asChild>
+              <Link href="/survey">Take the first survey →</Link>
+            </Button>
           </motion.div>
         )}
       </div>
