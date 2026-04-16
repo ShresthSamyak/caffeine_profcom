@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 30% 98%;
+    --foreground: 20 40% 8%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 20 40% 8%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 40% 8%;
+
+    --primary: 22 60% 45%;
+    --primary-foreground: 40 30% 98%;
+
+    --secondary: 35 40% 94%;
+    --secondary-foreground: 22 40% 20%;
+
+    --muted: 35 25% 94%;
+    --muted-foreground: 22 20% 48%;
+
+    --accent: 35 40% 92%;
+    --accent-foreground: 22 40% 20%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 30 20% 90%;
+    --input: 30 20% 90%;
+    --ring: 22 60% 45%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-cream-100;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-coffee-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-coffee-500;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-coffee-200 text-coffee-900;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-coffee-600 to-coffee-800 bg-clip-text text-transparent;
+  }
+}
